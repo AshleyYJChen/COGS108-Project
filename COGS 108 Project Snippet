@@ -1,0 +1,75 @@
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import patsy
+import statsmodels.api as sm
+import scipy.stats as stats
+from scipy.stats import ttest_ind, chisquare, normaltest
+import seaborn as sns
+
+# Set display to show many rows/cols of DataFrames
+pd.options.display.max_rows = 11
+pd.options.display.max_columns = 8
+
+# Import San Jose victim data
+df_victims = pd.read_csv('All_Cities/San_Jose_CA/victims.csv')
+df_log = pd.read_csv('All_Cities/San_Jose_CA/homicides.csv')
+
+# Rename headers
+df_log.columns = ['DATE', 'TOP CASE', 'TOP VIC', 'CASE NUMBER', 'GANG', 'DV', 'WEAPON',
+                  'LOCATION', 'CLEARED', 'UNCLEARED', 'ARREST DATE']
+df_victims.columns = ['CASE NUMBER', 'NAME', 'GENDER', 'RACE', 'DOB', 'AGE']
+
+# Drop columns from the log dataframe
+df_log = df_log.drop(['DATE', 'ARREST DATE'], axis=1)
+df_log = df_log.drop(['BEAT'], axis=1)
+df_log = df_log.drop(['CLEARED', 'UNCLEARED'], axis=1)
+
+# Drop columns from the victims dataframe
+df_victims = df_victims.drop(['NAME'], axis=1)
+
+# Merge log and victim data on 'CASE NUMBER'
+SJ_df = pd.merge(df_victims, df_log, on='CASE NUMBER')
+
+# Convert all to upper case and age to string
+SJ_df = SJ_df.apply(lambda x: x.astype(str).str.upper())
+def to_int(row):
+    if "MOS." in row['AGE']:
+        return 0
+    return int(row['AGE'])
+
+int_age = SJ_df.apply(to_int, axis=1)
+SJ_df = SJ_df.drop(['AGE'], axis=1)
+SJ_df['AGE'] = int_age
+
+# Function to standardize firearms
+def standardize_firearms(firearm):
+    if firearm in ['FIREARM', 'GUN', 'HANDGUN', 'SHOTGUN']:
+        return 'FIREARM'
+    return firearm
+
+# Filter for 'Firearm' Cases Only
+x = SJ_df['WEAPON'].apply(standardize_firearms)
+SJ_df = SJ_df[x == 'FIREARM']
+
+# Rename race elements and count values in RACE column
+SJ_df['RACE'] = SJ_df['RACE'].replace({'B': 'Black', 'H': 'Hispanic', 'W': 'Hispanic', 
+                                       'A': 'Asian', 'K': 'Asian', 'Z': 'Asian', 
+                                       'F': 'Asian', 'D': 'Asian', 'J': 'Asian', 'O': 'Other'})
+race_count = SJ_df['RACE'].value_counts()
+SJ_df['RACE']
+
+# Function to clear arrest
+def clear_arrest(row):
+    if row['ARREST DATE'] == 'NAN':
+        return 'CLOSED'
+    return 'OPEN'
+
+# Filter for 'Firearm' Cases Only
+x = SJ_df['ARREST DATE'].apply(clear_arrest)
+bool_set = x.replace({'OPEN': True, 'CLOSED': False})
+SJ_df['OPEN/CLOSED'] = x
+
+SJ_df.drop(['ARREST DATE'], axis=1)
+### End of Snippet ###
